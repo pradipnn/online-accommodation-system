@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { adminApi, errorMessage } from "../services/api";
 import PageLoader from "../components/PageLoader";
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState("properties"),
     [properties, setProperties] = useState([]),
@@ -27,6 +28,7 @@ export default function AdminDashboard() {
       .finally(() => setLoading(false));
   };
   useEffect(load, []);
+
   const decide = async (type, id, decision) => {
     try {
       type === "property"
@@ -38,6 +40,23 @@ export default function AdminDashboard() {
       toast.error(errorMessage(e));
     }
   };
+
+  const toggleStatus = async (user) => {
+    const previousUsers = [...users];
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === user.id ? { ...u, enabled: !u.enabled } : u)),
+    );
+
+    try {
+      await adminApi.toggleUser(user.id);
+      toast.success("User status updated successfully");
+    } catch (e) {
+      setUsers(previousUsers);
+      toast.error(errorMessage(e));
+    }
+  };
+
   if (loading) return <PageLoader text="Loading admin panel..." />;
   return (
     <section className="portal-page dashboard-bg">
@@ -69,24 +88,36 @@ export default function AdminDashboard() {
             ))}
           </div>
           {tab === "properties" &&
-            properties.map((p) => (
-              <ApprovalRow
-                key={p.id}
-                title={p.title}
-                subtitle={`${p.ownerName} · ${p.city}`}
-                onApprove={() => decide("property", p.id, "APPROVED")}
-                onReject={() => decide("property", p.id, "REJECTED")}
-              />
+            (properties.length > 0 ? (
+              properties.map((p) => (
+                <ApprovalRow
+                  key={p.id}
+                  title={p.title}
+                  subtitle={`${p.ownerName} · ${p.city}`}
+                  onApprove={() => decide("property", p.id, "APPROVED")}
+                  onReject={() => decide("property", p.id, "REJECTED")}
+                />
+              ))
+            ) : (
+              <div className="text-center py-1">
+                <p className="text-muted">No pending properties available.</p>
+              </div>
             ))}
           {tab === "owners" &&
-            owners.map((o) => (
-              <ApprovalRow
-                key={o.id}
-                title={o.fullName}
-                subtitle={o.email}
-                onApprove={() => decide("owner", o.id, "APPROVED")}
-                onReject={() => decide("owner", o.id, "REJECTED")}
-              />
+            (owners.length > 0 ? (
+              owners.map((o) => (
+                <ApprovalRow
+                  key={o.id}
+                  title={o.fullName}
+                  subtitle={o.email}
+                  onApprove={() => decide("owner", o.id, "APPROVED")}
+                  onReject={() => decide("owner", o.id, "REJECTED")}
+                />
+              ))
+            ) : (
+              <div className="text-center py-1">
+                <p className="text-muted">No pending owners available.</p>
+              </div>
             ))}
           {tab === "users" && (
             <div className="table-responsive">
@@ -97,29 +128,34 @@ export default function AdminDashboard() {
                     <th>Email</th>
                     <th>Role</th>
                     <th>Status</th>
-                    <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id}>
-                      <td>{u.fullName}</td>
-                      <td>{u.email}</td>
-                      <td>{u.role}</td>
-                      <td>{u.enabled === false ? "Inactive" : "Active"}</td>
-                      <td>
-                        <button
-                          className="btn btn-sm btn-outline-dark"
-                          onClick={async () => {
-                            await adminApi.toggleUser(u.id);
-                            load();
-                          }}
-                        >
-                          Toggle
-                        </button>
+                  {users.length > 0 ? (
+                    users.map((u) => (
+                      <tr key={u.id}>
+                        <td>{u.fullName}</td>
+                        <td>{u.email}</td>
+                        <td>{u.role}</td>
+                        <td>
+                          <button
+                            className={`btn btn-sm ${
+                              u.enabled ? "btn-success" : "btn-danger"
+                            }`}
+                            onClick={() => toggleStatus(u)}
+                          >
+                            {u.enabled ? "Active" : "Inactive"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="text-center py-4 text-muted">
+                        No users available.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
